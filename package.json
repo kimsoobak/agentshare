@@ -1,0 +1,39 @@
+{
+  "name": "agentshare-node",
+  "version": "0.1.0",
+  "description": "AgentShare P2P AI Agent Node",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:all": "electron-builder --mac --win"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@solana/web3.js": "^1.95.0",
+    "ws": "^8.18.0",
+    "axios": "^1.7.0",
+    "bip39": "^3.1.0",
+    "tweetnacl": "^1.0.3",
+    "bs58": "^6.0.0",
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "kr.agentshare.node",
+    "productName": "AgentShare Node",
+    "icon": "assets/icon",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "files": ["main.js", "preload.js", "renderer/**", "src/**"]
+  }
+}
