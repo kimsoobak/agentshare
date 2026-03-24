@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Nav from '@/components/Nav'
+import BottomTabBar from '@/components/BottomTabBar'
 import WalletContextProvider from '@/components/WalletContextProvider'
 
 export const metadata: Metadata = {
@@ -14,7 +15,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-bg text-text font-sans antialiased">
         <WalletContextProvider>
           <Nav />
-          <main>{children}</main>
+          <main className="pb-16 md:pb-0">{children}</main>
+          <BottomTabBar />
           <footer className="border-t border-border mt-20 py-12 text-center">
             <div className="flex items-center justify-center gap-2 mb-3">
               <div className="w-6 h-6 rounded-md bg-gradient-to-br from-accent to-accent2 flex items-center justify-center">
