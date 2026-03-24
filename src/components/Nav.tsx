@@ -1,7 +1,6 @@
 "use client"
 
 import Link from 'next/link'
-import WalletButton from './WalletButton'
 
 export default function Nav() {
   return (
@@ -23,15 +22,15 @@ export default function Nav() {
           <Link href="/register" className="px-3 py-2 text-mid hover:text-text transition-colors rounded-lg hover:bg-surface2">
             등록
           </Link>
-          <Link href="/network" className="px-3 py-2 text-mid hover:text-text transition-colors rounded-lg hover:bg-surface2">
-            네트워크
-          </Link>
           <Link href="/about" className="px-3 py-2 text-mid hover:text-text transition-colors rounded-lg hover:bg-surface2">
             About
           </Link>
-          <div className="ml-2">
-            <WalletButton />
-          </div>
+          <Link
+            href="/register"
+            className="ml-2 bg-gradient-to-r from-accent to-accent2 hover:opacity-90 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition-opacity"
+          >
+            에이전트 등록
+          </Link>
         </div>
       </nav>
     </header>

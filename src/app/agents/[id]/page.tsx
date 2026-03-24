@@ -3,9 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useWallet } from '@solana/wallet-adapter-react'
 import { supabase, type Agent } from '@/lib/supabase'
-import { sendPayment, AGENT_USE_FEE } from '@/lib/solana'
 
 const TYPE_STYLES: Record<string, { color: string; bg: string; border: string; gradient: string }> = {
   search: {
@@ -41,27 +39,12 @@ const TYPE_ICONS: Record<string, string> = {
   code: '💻',
 }
 
-const MOCK_HISTORY = [
-  { time: '3분 전', amount: '0.001 SOL', sig: '5xHk...9pQr' },
-  { time: '17분 전', amount: '0.001 SOL', sig: '2mJd...4wLz' },
-  { time: '42분 전', amount: '0.001 SOL', sig: '8bNf...1cVy' },
-]
-
-function shortAddr(addr: string | null): string {
-  if (!addr) return '—'
-  return `${addr.slice(0, 4)}...${addr.slice(-4)}`
-}
-
 export default function AgentDetailPage() {
   const params = useParams()
   const id = params?.id as string
 
-  const { publicKey, signTransaction, connected } = useWallet()
   const [agent, setAgent] = useState<Agent | null>(null)
   const [loading, setLoading] = useState(true)
-  const [paying, setPaying] = useState(false)
-  const [txSig, setTxSig] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -79,55 +62,6 @@ export default function AgentDetailPage() {
     }
     loadAgent()
   }, [id])
-
-  const isOwner =
-    connected &&
-    publicKey &&
-    agent?.wallet_address &&
-    publicKey.toBase58() === agent.wallet_address
-
-  async function handleUse() {
-    if (!connected || !publicKey || !signTransaction) {
-      setError('지갑을 먼저 연결해주세요')
-      return
-    }
-    if (!agent?.wallet_address) {
-      setError('이 에이전트는 지갑 주소가 등록되지 않았습니다')
-      return
-    }
-
-    setPaying(true)
-    setError(null)
-    setTxSig(null)
-
-    try {
-      const sig = await sendPayment(publicKey, agent.wallet_address, AGENT_USE_FEE, signTransaction)
-      setTxSig(sig)
-
-      // Supabase 업데이트
-      await supabase
-        .from('agents')
-        .update({
-          total_requests: (agent.total_requests ?? 0) + 1,
-          sol_earned: (agent.sol_earned ?? 0) + AGENT_USE_FEE,
-        })
-        .eq('id', agent.id)
-
-      setAgent((prev) =>
-        prev
-          ? {
-              ...prev,
-              total_requests: (prev.total_requests ?? 0) + 1,
-              sol_earned: (prev.sol_earned ?? 0) + AGENT_USE_FEE,
-            }
-          : prev
-      )
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '결제 실패')
-    } finally {
-      setPaying(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -161,6 +95,8 @@ export default function AgentDetailPage() {
     gradient: 'from-surface2 to-bg',
   }
   const icon = TYPE_ICONS[typeKey] || '🤖'
+  const tgUsername = agent.telegram_username?.replace(/^@/, '')
+  const tgUrl = tgUsername ? `https://t.me/${tgUsername}` : null
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
@@ -177,11 +113,6 @@ export default function AgentDetailPage() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold text-text">{agent.name}</h1>
-                {isOwner && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent border border-accent/30 font-medium">
-                    내 에이전트
-                  </span>
-                )}
                 {agent.is_active && (
                   <span className="flex items-center gap-1 text-xs text-green-400">
                     <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
@@ -220,101 +151,82 @@ export default function AgentDetailPage() {
         )}
 
         {/* 스탯 */}
-        <div className="grid grid-cols-3 gap-4 py-4 border-t border-b border-white/5 mb-6">
+        <div className="grid grid-cols-2 gap-4 py-4 border-t border-b border-white/5 mb-6">
           <div className="text-center">
             <p className="text-2xl font-bold text-text">{agent.total_requests ?? 0}</p>
             <p className="text-xs text-muted mt-1">총 사용횟수</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-accent2">{(agent.sol_earned ?? 0).toFixed(3)}</p>
-            <p className="text-xs text-muted mt-1">SOL 수익</p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm font-mono text-mid">{shortAddr(agent.wallet_address)}</p>
-            <p className="text-xs text-muted mt-1">지갑 주소</p>
+            {tgUsername ? (
+              <>
+                <p className="text-sm font-mono text-accent2">@{tgUsername}</p>
+                <p className="text-xs text-muted mt-1">텔레그램 봇</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted">—</p>
+                <p className="text-xs text-muted mt-1">텔레그램 봇</p>
+              </>
+            )}
           </div>
         </div>
 
-        {/* 지갑 주소 풀 링크 */}
-        {agent.wallet_address && (
+        {/* 제작자 */}
+        {(agent.creator || agent.contact) && (
           <div className="mb-6 p-3 bg-bg/50 rounded-xl border border-border">
-            <p className="text-xs text-muted mb-1">에이전트 지갑 · Wallet Address</p>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-sm text-mid break-all">{agent.wallet_address}</span>
-              <a
-                href={`https://explorer.solana.com/address/${agent.wallet_address}?cluster=devnet`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-shrink-0 text-xs text-accent hover:underline"
-              >
-                Explorer ↗
-              </a>
+            <p className="text-xs text-muted mb-1">제작자 정보</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {agent.creator && (
+                <span className="text-sm text-mid">{agent.creator}</span>
+              )}
+              {agent.contact && (
+                <span className="text-xs font-mono text-muted">{agent.contact}</span>
+              )}
             </div>
           </div>
         )}
 
-        {/* 사용하기 버튼 */}
-        {connected ? (
-          <button
-            onClick={handleUse}
-            disabled={paying}
-            className="w-full bg-gradient-to-r from-accent to-accent2 hover:opacity-90 disabled:opacity-50 text-white py-3 rounded-xl font-semibold transition-opacity flex items-center justify-center gap-2"
+        {/* 텔레그램 대화 버튼 */}
+        {tgUrl ? (
+          <a
+            href={tgUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-accent to-accent2 hover:opacity-90 text-white py-3 rounded-xl font-semibold transition-opacity"
           >
-            {paying ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                결제 중...
-              </>
-            ) : (
-              `에이전트 사용하기 — ${AGENT_USE_FEE} SOL`
-            )}
-          </button>
+            <span>💬</span>
+            텔레그램으로 대화하기
+          </a>
         ) : (
-          <div className="w-full text-center py-3 rounded-xl border border-border text-muted text-sm">
-            지갑을 먼저 연결해주세요
-          </div>
-        )}
-
-        {/* 에러 */}
-        {error && (
-          <p className="mt-3 text-xs text-red-400 text-center">{error}</p>
-        )}
-
-        {/* 트랜잭션 성공 */}
-        {txSig && (
-          <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
-            <p className="text-xs text-green-400 font-medium mb-1">결제 성공!</p>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs text-green-300 break-all">{txSig}</span>
-              <a
-                href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-shrink-0 text-xs text-accent hover:underline"
-              >
-                Explorer ↗
-              </a>
-            </div>
-          </div>
+          <button
+            disabled
+            className="w-full text-center py-3 rounded-xl border border-border text-muted text-sm cursor-not-allowed bg-surface2"
+          >
+            🔜 텔레그램 봇 준비 중
+          </button>
         )}
       </div>
 
-      {/* 사용 기록 */}
+      {/* 에이전트 소개 박스 */}
       <div className="bg-card border border-border rounded-2xl p-6">
-        <h2 className="text-sm font-semibold text-text mb-4">최근 사용 기록</h2>
+        <h2 className="text-sm font-semibold text-text mb-4">에이전트 정보</h2>
         <div className="space-y-3">
-          {MOCK_HISTORY.map((item, i) => (
-            <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-              <div className="flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-accent2 flex-shrink-0" />
-                <span className="text-sm text-mid">{item.time}</span>
-              </div>
-              <div className="flex items-center gap-3 text-right">
-                <span className="text-sm font-medium text-accent2">{item.amount}</span>
-                <span className="font-mono text-xs text-muted">{item.sig}</span>
-              </div>
-            </div>
-          ))}
+          <div className="flex items-center justify-between py-2 border-b border-border">
+            <span className="text-xs text-muted">플랫폼</span>
+            <span className="text-sm text-mid">OpenClaw</span>
+          </div>
+          <div className="flex items-center justify-between py-2 border-b border-border">
+            <span className="text-xs text-muted">연결 방식</span>
+            <span className="text-sm text-mid">텔레그램</span>
+          </div>
+          <div className="flex items-center justify-between py-2 border-b border-border">
+            <span className="text-xs text-muted">데이터 저장</span>
+            <span className="text-sm text-mid">운영자 서버 (데이터 주권)</span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-xs text-muted">이용 요금</span>
+            <span className="text-sm font-semibold text-accent2">🆓 무료</span>
+          </div>
         </div>
       </div>
     </div>

@@ -28,11 +28,6 @@ const TYPE_ICONS: Record<string, string> = {
   code: '💻',
 }
 
-function shortAddr(addr: string | null): string {
-  if (!addr) return '—'
-  return `${addr.slice(0, 4)}...${addr.slice(-4)}`
-}
-
 function SkeletonCard() {
   return (
     <div className="bg-card border border-border rounded-2xl p-6 animate-pulse">
@@ -95,7 +90,7 @@ export default function BrowsePage() {
     <div className="max-w-6xl mx-auto px-6 py-12">
       <div className="mb-10">
         <h1 className="text-3xl font-bold text-text">에이전트 탐색</h1>
-        <p className="text-muted mt-1 text-sm">Browse Agents — 탈중앙화 AI 에이전트 네트워크</p>
+        <p className="text-muted mt-1 text-sm">Browse Agents — 텔레그램으로 바로 대화하세요</p>
       </div>
 
       {/* 검색 */}
@@ -196,6 +191,8 @@ export default function BrowsePage() {
               border: 'border-border',
             }
             const icon = TYPE_ICONS[typeKey] || '🤖'
+            const tgUsername = agent.telegram_username?.replace(/^@/, '')
+            const tgUrl = tgUsername ? `https://t.me/${tgUsername}` : null
 
             return (
               <div
@@ -210,8 +207,8 @@ export default function BrowsePage() {
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                         <h3 className="font-bold text-lg text-text leading-tight">{agent.name}</h3>
                         {agent.is_active && (
-                          <div className="flex items-center gap-1 text-green">
-                            <div className="w-1.5 h-1.5 rounded-full bg-green animate-pulse" />
+                          <div className="flex items-center gap-1 text-green-400">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                             <span className="text-xs font-medium">Online</span>
                           </div>
                         )}
@@ -253,24 +250,39 @@ export default function BrowsePage() {
                 <div className="mt-auto pt-4 border-t border-border space-y-3">
                   <div className="flex items-center justify-between text-xs">
                     <div>
-                      <p className="text-muted mb-0.5">지갑 · Wallet</p>
-                      <p className="font-mono text-mid">{shortAddr(agent.wallet_address)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-muted mb-0.5">사용횟수 / SOL 수익</p>
+                      <p className="text-muted mb-0.5">사용횟수</p>
                       <p className="font-medium text-text">
                         {agent.total_requests ?? 0} req
-                        <span className="text-muted mx-1">/</span>
-                        <span className="text-accent2">{agent.sol_earned ?? 0} SOL</span>
                       </p>
                     </div>
+                    {agent.telegram_username && (
+                      <div className="text-right">
+                        <p className="text-muted mb-0.5">텔레그램</p>
+                        <p className="font-mono text-accent2 text-xs">
+                          @{agent.telegram_username.replace(/^@/, '')}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <Link
-                    href={`/agents/${agent.id}`}
-                    className="block w-full text-center bg-gradient-to-r from-accent to-accent2 hover:opacity-90 text-white text-sm px-4 py-2.5 rounded-xl transition-opacity font-medium"
-                  >
-                    사용하기 →
-                  </Link>
+
+                  {tgUrl ? (
+                    <a
+                      href={tgUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-accent to-accent2 hover:opacity-90 text-white text-sm px-4 py-2.5 rounded-xl transition-opacity font-medium"
+                    >
+                      <span>💬</span>
+                      텔레그램으로 대화
+                    </a>
+                  ) : (
+                    <button
+                      disabled
+                      className="w-full text-center bg-surface2 border border-border text-muted text-sm px-4 py-2.5 rounded-xl font-medium cursor-not-allowed"
+                    >
+                      🔜 준비 중
+                    </button>
+                  )}
                 </div>
               </div>
             )

@@ -2,8 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useWallet } from '@solana/wallet-adapter-react'
-import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { supabase } from '@/lib/supabase'
 
 const AGENT_TYPES = [
@@ -17,8 +15,6 @@ const CATEGORIES = ['개발', '법률', '의료', '금융', '설계', '기타']
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { connected, publicKey } = useWallet()
-  const { setVisible } = useWalletModal()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,6 +26,7 @@ export default function RegisterPage() {
     creator: '',
     contact: '',
     tags: '',
+    telegram_username: '',
   })
 
   const handleChange = (
@@ -40,10 +37,6 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!connected || !publicKey) {
-      setError('Phantom 지갑을 먼저 연결해주세요.')
-      return
-    }
     if (!agentType) {
       setError('에이전트 타입을 선택해주세요.')
       return
@@ -51,6 +44,11 @@ export default function RegisterPage() {
 
     setLoading(true)
     setError(null)
+
+    // telegram_username 정규화: @ 제거
+    const tgUsername = form.telegram_username
+      ? form.telegram_username.replace(/^@/, '').trim() || null
+      : null
 
     const { error: err } = await supabase.from('agents').insert([
       {
@@ -63,7 +61,7 @@ export default function RegisterPage() {
           .split(',')
           .map((t) => t.trim())
           .filter(Boolean),
-        wallet_address: publicKey.toString(),
+        telegram_username: tgUsername,
         agent_type: agentType,
         is_active: true,
       },
@@ -77,59 +75,15 @@ export default function RegisterPage() {
     }
   }
 
-  // 지갑 미연결 상태
-  if (!connected || !publicKey) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center px-6">
-        <div className="max-w-md w-full text-center">
-          <div className="bg-card border border-border rounded-2xl p-10">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent to-accent2 flex items-center justify-center mx-auto mb-6">
-              <span className="text-2xl">👻</span>
-            </div>
-            <h2 className="text-2xl font-bold text-text mb-2">지갑 연결 필요</h2>
-            <p className="text-mid text-sm mb-1">Wallet Connection Required</p>
-            <p className="text-muted text-sm leading-relaxed mb-8 mt-4">
-              에이전트를 배포하려면 Phantom 지갑을 먼저 연결해주세요.
-              <span className="block mt-1 text-muted">
-                Connect your Phantom wallet to deploy an agent.
-              </span>
-            </p>
-            <button
-              onClick={() => setVisible(true)}
-              className="w-full bg-gradient-to-r from-accent to-accent2 hover:opacity-90 text-white py-3 rounded-xl font-semibold transition-opacity"
-            >
-              Phantom 지갑 연결하기
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const walletAddr = publicKey.toString()
-  const walletShort = `${walletAddr.slice(0, 6)}...${walletAddr.slice(-6)}`
-
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <div className="mb-10">
         <div className="inline-flex items-center gap-1.5 bg-surface2 border border-border px-3 py-1 rounded-full mb-4">
           <div className="w-1.5 h-1.5 rounded-full bg-accent2 animate-pulse" />
-          <span className="text-xs text-mid font-medium">Powered by Solana</span>
+          <span className="text-xs text-mid font-medium">Powered by OpenClaw</span>
         </div>
-        <h1 className="text-3xl font-bold text-text">에이전트 배포하기</h1>
-        <p className="text-muted mt-1 text-sm">Deploy Your Agent — AgentShare P2P 네트워크에 등록하세요</p>
-      </div>
-
-      {/* 지갑 연결 상태 표시 */}
-      <div className="flex items-center gap-3 bg-surface2 border border-accent/20 rounded-xl px-4 py-3 mb-8">
-        <div className="w-2 h-2 rounded-full bg-accent2 animate-pulse flex-shrink-0" />
-        <div className="min-w-0">
-          <p className="text-xs text-mid">연결된 지갑 · Connected Wallet</p>
-          <p className="text-sm font-mono text-accent2 truncate">{walletShort}</p>
-        </div>
-        <span className="ml-auto text-xs text-accent bg-accent/10 border border-accent/20 px-2 py-0.5 rounded-full flex-shrink-0">
-          ✓ Connected
-        </span>
+        <h1 className="text-3xl font-bold text-text">에이전트 등록하기</h1>
+        <p className="text-muted mt-1 text-sm">내 AI 에이전트를 AgentShare에 공유하세요</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -144,7 +98,7 @@ export default function RegisterPage() {
             value={form.name}
             onChange={handleChange}
             required
-            placeholder="예: Search Agent #001"
+            placeholder="예: 법률 상담 에이전트"
             className="w-full px-4 py-3 rounded-xl border border-border bg-card text-text placeholder-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-colors"
           />
         </div>
@@ -213,6 +167,27 @@ export default function RegisterPage() {
           </select>
         </div>
 
+        {/* 텔레그램 봇 username */}
+        <div>
+          <label className="block text-sm font-medium text-mid mb-1">
+            텔레그램 봇 <span className="text-muted font-normal">· Telegram Bot Username</span>
+            <span className="text-muted ml-1 text-xs">(선택)</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted text-sm">@</span>
+            <input
+              name="telegram_username"
+              value={form.telegram_username}
+              onChange={handleChange}
+              placeholder="your_bot_username"
+              className="w-full pl-8 pr-4 py-3 rounded-xl border border-border bg-card text-text placeholder-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-colors font-mono"
+            />
+          </div>
+          <p className="text-xs text-muted mt-1">
+            텔레그램 봇 username을 입력하면 사용자가 바로 연결할 수 있어요.
+          </p>
+        </div>
+
         {/* 태그 */}
         <div>
           <label className="block text-sm font-medium text-mid mb-1">
@@ -222,7 +197,7 @@ export default function RegisterPage() {
             name="tags"
             value={form.tags}
             onChange={handleChange}
-            placeholder="Tavily, 실시간검색, RAG"
+            placeholder="법률, 계약, 상담"
             className="w-full px-4 py-3 rounded-xl border border-border bg-card text-text placeholder-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-colors"
           />
           <p className="text-xs text-muted mt-1">쉼표로 구분 · Separate with commas</p>
@@ -256,16 +231,15 @@ export default function RegisterPage() {
           />
         </div>
 
-        {/* 지갑 주소 (읽기 전용) */}
-        <div>
-          <label className="block text-sm font-medium text-mid mb-1">
-            지갑 주소 <span className="text-muted font-normal">· Wallet Address</span>
-            <span className="text-accent2 ml-1 text-xs">(자동 입력)</span>
-          </label>
-          <div className="w-full px-4 py-3 rounded-xl border border-accent/20 bg-surface2 text-accent2 font-mono text-sm break-all select-all">
-            {walletAddr}
+        {/* 안내 박스 */}
+        <div className="flex items-start gap-3 bg-surface2 border border-accent2/20 rounded-xl px-4 py-3">
+          <span className="text-accent2 text-lg flex-shrink-0">💡</span>
+          <div>
+            <p className="text-xs text-mid font-medium mb-1">OpenClaw 에이전트란?</p>
+            <p className="text-xs text-muted leading-relaxed">
+              개인이 운영하는 OpenClaw AI 에이전트를 등록하세요. 데이터는 운영자 서버에 보관되어 빅테크 클라우드에 종속되지 않습니다.
+            </p>
           </div>
-          <p className="text-xs text-muted mt-1">연결된 Phantom 지갑 주소가 자동으로 저장됩니다</p>
         </div>
 
         {error && (
@@ -280,7 +254,7 @@ export default function RegisterPage() {
             disabled={loading}
             className="w-full bg-gradient-to-r from-accent to-accent2 hover:opacity-90 disabled:opacity-50 text-white py-4 rounded-xl font-semibold text-lg transition-opacity shadow-lg shadow-accent/20"
           >
-            {loading ? '배포 중...' : '에이전트 배포하기 · Launch Agent'}
+            {loading ? '등록 중...' : '에이전트 등록하기 →'}
           </button>
         </div>
       </form>
